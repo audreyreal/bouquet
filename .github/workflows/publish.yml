@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/publish.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Pick version (auto-bump if already released)
+        id: version
+        run: |
+          header=src/userscript-header.txt
+          v=$(sed -nE 's#^// @version[[:space:]]+([^[:space:]]+)[[:space:]]*$#\1#p' "$header")
+          if [ -z "$v" ]; then
+            echo "::error::no // @version line in $header"
+            exit 1
+          fi
+          tag_exists() {
+            local rc=0
+            git ls-remote --exit-code --tags origin "refs/tags/v$1" >/dev/null || rc=$?
+            if [ "$rc" -eq 0 ]; then return 0; fi
+            if [ "$rc" -eq 2 ]; then return 1; fi
+            echo "::error::git ls-remote failed with exit code $rc"
+            exit 1
+          }
+          bumped=false
+          while tag_exists "$v"; do
+            if [[ $v =~ ^(.*[^0-9])([0-9]+)$ ]]; then
+              v="${BASH_REMATCH[1]}$((10#${BASH_REMATCH[2]} + 1))"
+            else
+              v="$v.1"
+            fi
+            bumped=true
+          done
+          if [ "$bumped" = true ]; then
+            sed -i -E "s#^(// @version[[:space:]]+)[^[:space:]]+#\1${v}#" "$header"
+            echo "Auto-bumped @version to $v"
+          else
+            echo "Releasing manually set @version $v"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "bumped=$bumped" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: bun run build
+
+      - name: Push version bump
+        if: steps.version.outputs.bumped == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add src/userscript-header.txt
+          git commit -m "$VERSION automatic version bump [skip ci]"
+          git push origin HEAD:main
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/Bouquet.user.js \
+            --target "$(git rev-parse HEAD)" \
+            --title "v$VERSION" \
+            --generate-notes \
+            --latest

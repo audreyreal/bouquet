@@ -1,0 +1,18 @@
+// ==UserScript==
+// @name         Bouquet
+// @namespace    bouquet
+// @version      1.0.2
+// @author       audrey lily
+// @description  a tool to manage nationstates puppets
+// @match        https://*.nationstates.net/*
+// @match        http://*.nationstates.net/*
+// @exclude      https://forum.nationstates.net/*
+// @exclude      https://*.nationstates.net/page=panel*
+// @exclude      https://*.nationstates.net/page=hpanel*
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @require      https://unpkg.com/mdui@2/mdui.global.js
+// @updateURL    https://github.com/audreyreal/bouquet/releases/latest/download/Bouquet.user.js
+// @downloadURL  https://github.com/audreyreal/bouquet/releases/latest/download/Bouquet.user.js
+// @run-at       document-idle
+// ==/UserScript==

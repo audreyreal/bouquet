@@ -1,0 +1,16 @@
+{
+  "name": "bouquet",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "bun run biome check",
+    "format": "bun run biome check --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.6.0"
+  }
+}
