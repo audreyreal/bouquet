@@ -1,7 +1,8 @@
 import { CUSTOM_PRETITLE_MIN_POP } from "../../constants";
 import { dumpDateText, formatPopulation } from "../../dump";
-import { type PipelineStep, populationOf } from "../../state";
+import { type PipelineStep, persist, populationOf, state } from "../../state";
 import { el, hint, selectField } from "../../ui/dom";
+import { canon } from "../../utils";
 import { specError } from "../spec";
 import type { ActionDef } from "../types";
 
@@ -16,8 +17,9 @@ type NsControl =
 /* The dialog's controls, grouped, hardcoded from the native settings form's own fields. A static
  * descriptor, not a template read: NS adds a setting rarely, and text/select/tristate covers every
  * one of them. Excluded on purpose: the legacy OpenID pair, the hidden `oldemail` mirror and
- * `update` submit, the unlockable text-only rows (capital/leader/religion) that have no input, and
- * the flag text field (flags are set by the Change Nation Flag upload action). */
+ * `update` submit, the unlockable text-only rows (capital/leader/religion) that have no input, the
+ * flag text field (flags are set by the Change Nation Flag upload action), and `confirm_password`
+ * (buildSpec mirrors `password` into it). */
 const NATION_DIALOG_GROUPS: Array<{ title: string; controls: NsControl[] }> = [
   {
     title: "Identity",
@@ -103,12 +105,6 @@ const NATION_DIALOG_GROUPS: Array<{ title: string; controls: NsControl[] }> = [
         ],
       },
       { kind: "text", key: "password", label: "Change Password", inputType: "password" },
-      {
-        kind: "text",
-        key: "confirm_password",
-        label: "Confirm New Password",
-        inputType: "password",
-      },
     ],
   },
 ];
@@ -178,8 +174,7 @@ export const nationSettingAction: Omit<ActionDef, "group"> = {
       if (validation) return specError(validation);
       body[key] = value;
     }
-    if (body.password && body.confirm_password !== body.password)
-      return specError("confirm_password must match password");
+    if (body.password) body.confirm_password = body.password;
     body.update = " Update ";
     return {
       kind: "text",
@@ -205,6 +200,14 @@ export const nationSettingAction: Omit<ActionDef, "group"> = {
     const block = pretitleBlock(step, ctx.actor);
     return block ? `Classification dropped — ${block}` : "";
   },
+  /* NS accepted the new password, so it becomes the puppet's login override; later login steps
+   * (and Login to all / native Login buttons) read it via passwordFor. */
+  onSuccess(step, ctx) {
+    const password = step.settings.password;
+    if (!password) return;
+    state.passwords[canon(ctx.actor)] = password;
+    persist();
+  },
   summary(step) {
     const entries = Object.entries(step.settings).filter(([field]) =>
       NATION_SETTING_KEYS.has(field),
@@ -214,6 +217,7 @@ export const nationSettingAction: Omit<ActionDef, "group"> = {
       const label = nationSettingLabel(field);
       if (CHECKBOX_SETTING_FIELDS.has(field))
         return `${label}: ${value === "0" ? "unchecked" : "checked"}`;
+      if (field === "password") return `${label}: (hidden)`;
       return `${label}: ${value.slice(0, 60)}`;
     };
     if (entries.length === 1) return render(entries[0]);
@@ -249,6 +253,7 @@ export const nationSettingAction: Omit<ActionDef, "group"> = {
             label: control.label,
             placeholder: control.placeholder,
             type: control.inputType,
+            "toggle-password": control.inputType === "password" ? "" : null,
           });
           node.value = step.settings[control.key] ?? "";
         }

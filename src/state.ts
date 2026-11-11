@@ -42,6 +42,7 @@ const PIPELINE_ACTION_TYPES = [
   "change-nation-flag",
   "custom-postcard",
   "clear-private-info",
+  "telegram-filters",
 ] as const;
 
 export type PipelineActionType = (typeof PIPELINE_ACTION_TYPES)[number];

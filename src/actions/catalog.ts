@@ -9,6 +9,7 @@ import { buildLoginSpec } from "./nation/login";
 import { moveRegionAction } from "./nation/move-region";
 import { nationSettingAction } from "./nation/nation-setting";
 import { reauthAction } from "./nation/reauth";
+import { telegramFiltersAction } from "./nation/telegram-filters";
 import { votePollAction } from "./nation/vote-poll";
 import { changeWfeAction } from "./region/change-wfe";
 import { checkRegionPowersAction } from "./region/check-region-powers";
@@ -48,6 +49,7 @@ export const ACTION_CATALOG: ActionDef[] = [
   { ...changeNationFlagAction, group: "nation" },
   { ...customPostcardAction, group: "nation" },
   { ...clearPrivateInfoAction, group: "nation" },
+  { ...telegramFiltersAction, group: "nation" },
 ];
 
 const BY_TYPE = new Map<string, ActionDef>(ACTION_CATALOG.map((d) => [d.type, d]));
