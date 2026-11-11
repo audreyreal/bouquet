@@ -1,3 +1,4 @@
+import type { RegionInfo, RegionShard } from "../net";
 import type { PipelineActionType, PipelineStep } from "../state";
 import type { ActionSpec } from "./spec";
 
@@ -47,12 +48,19 @@ export interface StepRequest {
   spec: ActionSpec;
 }
 
-/* An expanded step: its requests, one per press. `tolerant` = a failed request is recorded and the
- * step moves on to the next one; otherwise any failure ends the puppet's run. No requests = the
- * step is already satisfied (`note` says why). `pressUsed` = expand already spent this press on a
- * page read (one request per press), so requests start on the next press. */
+/* Requests a step decided at run time, one per press. `tolerant` = a failed request is recorded and
+ * the step moves on to the next one; otherwise any failure ends the puppet's run. No requests = the
+ * step is already satisfied (`note` says why). */
+export interface RequestPlan {
+  requests: StepRequest[];
+  tolerant?: boolean;
+  note?: string;
+}
+
+/* An expanded step. `pressUsed` = expand already spent this press on a page read (one request per
+ * press), so requests start on the next press. */
 export type ExpandResult =
-  | { requests: StepRequest[]; tolerant?: boolean; note?: string; pressUsed?: boolean }
+  | (RequestPlan & { pressUsed?: boolean })
   | { error: string }
   | { busy: true };
 
@@ -64,9 +72,18 @@ export interface ActionDef {
   fields: StepField[];
   /* Pipeline-card meta line; absent = "". */
   summary?(step: PipelineStep): string;
-  /* Exactly one of buildSpec (one request) and expand (requests decided at run time, e.g. off an API read). */
+  /* Exactly one of buildSpec (one request), expand (requests decided at run time) and fromRegion. */
   buildSpec?(step: PipelineStep, actor: string): ActionSpec;
   expand?(step: PipelineStep, ctx: RunContext): Promise<ExpandResult>;
+  /* Officer powers (letters from XWSABCEP) this step needs in the puppet's current region. The run
+   * checks them against the puppet's background region read and skips the step when any is missing. */
+  powers?: string;
+  /* Region tool: requests built synchronously from the puppet's background region read, which
+   * includes `shards`. The press never waits on the API. Pair with `powers`. */
+  fromRegion?: {
+    shards: RegionShard[];
+    requests(step: PipelineStep, info: RegionInfo, region: string): RequestPlan;
+  };
   /* Actor-independent setup error ("" = OK). When present, the pipeline's "Needs setup" check uses it
    * instead of building the spec for the main nation. */
   setupIssue?(step: PipelineStep): string;

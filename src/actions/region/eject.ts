@@ -7,6 +7,7 @@ export const ejectNationAction = regionControlAction({
   verb: "Eject",
   needle: "has been ejected from ",
   body: (nation) => ({ nation_name: nation, eject: "1" }),
+  powers: "B",
 });
 
 export const banjectNationAction = regionControlAction({
@@ -16,4 +17,5 @@ export const banjectNationAction = regionControlAction({
   verb: "Banject",
   needle: "has been ejected and banned from ",
   body: (nation) => ({ nation_name: nation, ban: "1" }),
+  powers: "B",
 });

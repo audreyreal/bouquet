@@ -36,7 +36,6 @@ const PIPELINE_ACTION_TYPES = [
   "suppress-rmb",
   "remove-dispatches",
   "sync-tags",
-  "check-region-powers",
   "eject-nation",
   "banject-nation",
   "change-nation-flag",

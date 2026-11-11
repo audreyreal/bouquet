@@ -10,6 +10,7 @@ export {
   specFor,
 } from "./catalog";
 export { applyPreset, deletePreset, overwritePreset, savePreset } from "./presets";
+export { missingPowers } from "./region/region-info";
 export { openStepSettings } from "./stepDialog";
-export type { ActionDef, RunContext, StepRequest } from "./types";
+export type { ActionDef, RequestPlan, RunContext, StepRequest } from "./types";
 export { ACTION_GROUPS } from "./types";

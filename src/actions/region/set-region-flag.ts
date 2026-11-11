@@ -24,6 +24,7 @@ export const setRegionFlagAction: Omit<ActionDef, "group"> = {
       ? "flag mode must be flag, logo, or empty"
       : "";
   },
+  powers: "A",
   buildSpec(step) {
     const flagId = stepSetting(step, "flagId");
     const bannerId = stepSetting(step, "bannerId");

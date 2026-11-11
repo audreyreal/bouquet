@@ -7,6 +7,7 @@ export const changeWfeAction: Omit<ActionDef, "group"> = {
   title: "Change WFE",
   blurb: "Set the region's World Factbook Entry.",
   fields: [{ key: "wfe", label: "WFE", placeholder: "Factbook text…", rows: 4 }],
+  powers: "A",
   buildSpec(step) {
     const message = val(step, "wfe");
     if (!message) return specError("WFE required");

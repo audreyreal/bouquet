@@ -1,13 +1,14 @@
 import type { ActionDef } from "../types";
-import { regionRequests } from "./region-info";
 
 export const suppressRmbAction: Omit<ActionDef, "group"> = {
   type: "suppress-rmb",
   title: "Suppress RMB Posts",
   blurb: "Suppress every unsuppressed post among the region's latest 100 RMB messages.",
   fields: [],
-  expand: (_step, ctx) =>
-    regionRequests(ctx, (info, region) =>
+  powers: "C",
+  fromRegion: {
+    shards: ["messages"],
+    requests: (_step, info, region) =>
       info.posts.length
         ? {
             tolerant: true,
@@ -21,6 +22,6 @@ export const suppressRmbAction: Omit<ActionDef, "group"> = {
             })),
           }
         : { requests: [], note: "no unsuppressed posts among the latest 100" },
-    ),
+  },
   summary: () => "Puppet's current region",
 };

@@ -1,5 +1,4 @@
-import { type RegionInfo, readRegionInfo } from "../../net";
-import type { ExpandResult, RunContext } from "../types";
+import type { RegionInfo } from "../../net";
 
 /* A tag as region_control's add_tag/remove_tag value (Henson TagToRequest). */
 export function tagKey(tag: string): string {
@@ -25,14 +24,14 @@ export const UNREMOVABLE_TAGS: Record<string, true> = {
   frontier: true,
 };
 
-/* Region-tool expansion: read the acting puppet's region off the API, then build its requests. */
-export async function regionRequests(
-  ctx: RunContext,
-  build: (info: RegionInfo, region: string) => ExpandResult,
-): Promise<ExpandResult> {
-  if (!ctx.region)
-    return { error: "puppet's region unknown — log in first (the login page reports it)" };
-  const res = await readRegionInfo(ctx.region);
-  if (!res.ok) return res.busy ? { busy: true } : { error: res.message };
-  return build(res.value, ctx.region);
+const ALL_POWERS = "XWSABCEP";
+
+/* Letters of `required` that `actor` does not hold in the read region: its officer authority, plus
+ * the delegate's authority when it is the delegate, plus every power when it is the governor.
+ * "" = holds them all. */
+export function missingPowers(info: RegionInfo, actor: string, required: string): string {
+  let held = info.officers.find((o) => o.nation === actor)?.authority ?? "";
+  if (info.delegate === actor) held = `${held}${info.delegateAuth}`;
+  if (info.governor === actor) held = `${held}${ALL_POWERS}`;
+  return [...required].filter((p) => !held.includes(p)).join("");
 }

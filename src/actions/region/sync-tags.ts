@@ -1,7 +1,7 @@
 import { lines } from "../../utils";
 import { REGION_CONTROL_PATH, stepSetting } from "../spec";
 import type { ActionDef, StepRequest } from "../types";
-import { regionRequests, tagKey, UNREMOVABLE_TAGS } from "./region-info";
+import { tagKey, UNREMOVABLE_TAGS } from "./region-info";
 
 function tagRequest(field: "add_tag" | "remove_tag", key: string): StepRequest {
   return {
@@ -28,8 +28,10 @@ export const syncTagsAction: Omit<ActionDef, "group"> = {
       rows: 6,
     },
   ],
-  expand: (step, ctx) =>
-    regionRequests(ctx, (info) => {
+  powers: "A",
+  fromRegion: {
+    shards: ["tags"],
+    requests: (step, info) => {
       const wanted = new Set(lines(stepSetting(step, "tags")).map(tagKey));
       const current = new Set(info.tags.map(tagKey));
       const requests = [
@@ -41,7 +43,8 @@ export const syncTagsAction: Omit<ActionDef, "group"> = {
       return requests.length
         ? { tolerant: true, requests }
         : { requests: [], note: "tags already match" };
-    }),
+    },
+  },
   summary(step) {
     const n = lines(stepSetting(step, "tags")).length;
     return n ? `${n}${n === 1 ? " tag" : " tags"}` : "Remove every removable tag";

@@ -6,6 +6,7 @@ export const embassyAction: Omit<ActionDef, "group"> = {
   type: "embassy",
   title: "Send Embassy Request",
   blurb: "Request embassies with the listed regions.",
+  powers: "E",
   fields: [
     {
       key: "embassies",

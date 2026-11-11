@@ -87,12 +87,14 @@ export function regionControlAction(def: {
   verb: string;
   needle: string;
   body: (value: string) => Record<string, string>;
+  powers: string;
 }): Omit<ActionDef, "group"> {
   return {
     type: def.type,
     title: def.title,
     blurb: def.blurb,
     fields: [{ key: "nation", label: "Nation" }],
+    powers: def.powers,
     buildSpec(step) {
       const value = val(step, "nation");
       if (!value) return specError("nation required");

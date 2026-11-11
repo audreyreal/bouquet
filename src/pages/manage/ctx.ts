@@ -1,25 +1,30 @@
 /* Manage page state shared by its subsystems (roster, pipeline, run), plus the run-state helpers. */
 import type { StepRequest } from "../../actions";
 import { outcomeText, refreshPopulations } from "../../dump";
+import type { ApiRead, RegionInfo } from "../../net";
 import { nationNames, persist, state, viewNames } from "../../state";
 import { toast } from "../../ui/mdui";
 
 /* Where the run's current step stands. `send`: the next press sends step `stepIndex` (an expand
- * step is expanded first). `requests`: an expanded step (ActionDef.expand), one press per request;
+ * step is expanded first). `requests`: an expanded step (ActionDef.expand or fromRegion), one press per request;
  * the next press sends list[pos]; `tolerant` = a failed request is counted in `failed` and the step
  * goes on. `skip-upload`: the step's upload came back empty; the next press skips the step. */
 export type StepProgress =
   | { kind: "send" }
   | { kind: "requests"; list: StepRequest[]; pos: number; failed: number; tolerant: boolean }
   | { kind: "skip-upload" };
+/* The puppet's one background region API read (run.ts prefetchRegion): the `region` it read;
+ * `result` null while in flight. */
+export type RegionRead = { region: string; result: ApiRead<RegionInfo> | null };
 /* One puppet's run in progress; `uploads` = IDs Upload Region File returned earlier in this run;
- * `startedAt` feeds the run bar ETA. */
+ * `startedAt` feeds the run bar ETA; `regionRead` = its background region read (null = none yet). */
 export type ActiveRun = {
   actor: string;
   stepIndex: number;
   progress: StepProgress;
   uploads: { flag: string; banner: string };
   startedAt: number; // Date.now() at the press that started this puppet's run
+  regionRead: RegionRead | null;
 };
 
 /* Page-local; nothing here persists. Run state: `active` = the run the next press continues;

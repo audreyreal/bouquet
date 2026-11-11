@@ -144,14 +144,14 @@ export function createPipeline(ctx: Ctx): Pipeline {
 
   const issueCache = new WeakMap<PipelineStep, string>();
   /* specFor is pure; cached per step object because upload steps decode their stored image.
-   * Actions with expand and no setupIssue have no setup issue; other actions without setupIssue are
+   * Actions with expand/fromRegion and no setupIssue have no setup issue; other actions without setupIssue are
    * checked by building the spec for the main nation. */
   function stepIssue(step: PipelineStep): string {
     let issue = issueCache.get(step);
     if (issue === undefined) {
       const def = actionDef(step.type);
       if (def?.setupIssue) issue = def.setupIssue(step);
-      else if (def?.expand) issue = "";
+      else if (def?.expand || def?.fromRegion) issue = "";
       else {
         const spec = specFor(step, state.mainNation);
         issue = spec.kind === "error" ? spec.message : "";

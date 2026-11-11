@@ -355,7 +355,7 @@ export function apiWaitMs(status: number, headers: Headers): number {
   return remaining <= API_RATE_RESERVE ? (reset + 1) * 1000 : 0;
 }
 
-/* A press/click-driven API read: one request, no retry; `busy` = NS busy (press again). */
+/* One API read: one request, no retry; `busy` = NS busy (press again). */
 export type ApiRead<T> = { ok: true; value: T } | { ok: false; busy: boolean; message: string };
 
 async function readApiXml(params: Record<string, string>): Promise<ApiRead<Document>> {
@@ -375,6 +375,8 @@ async function readApiXml(params: Record<string, string>): Promise<ApiRead<Docum
 }
 
 export type EmbassyKind = "established" | "invited" | "pending" | "requested" | "closing";
+
+export type RegionShard = "embassies" | "tags" | "messages" | "dispatches";
 
 export interface RegionInfo {
   embassies: Array<{ name: string; kind: EmbassyKind }>;
@@ -396,13 +398,17 @@ const EMBASSY_TYPES: Record<string, EmbassyKind> = {
   closing: "closing",
 };
 
-/* Region API read for the region tools: embassies, tags, the latest 100 RMB posts, dispatches,
- * officers, delegate and governor. */
-export async function readRegionInfo(region: string): Promise<ApiRead<RegionInfo>> {
+/* The run's one region API read per puppet (Manage prefetchRegion): officers, delegate,
+ * delegateauth and governor always, plus the requested shards (messages = the latest 100 RMB
+ * posts). Shards not requested parse as empty. */
+export async function readRegionInfo(
+  region: string,
+  shards: ReadonlySet<RegionShard>,
+): Promise<ApiRead<RegionInfo>> {
   const res = await readApiXml({
     region: canon(region),
-    q: "embassies tags messages dispatches officers delegate delegateauth governor",
-    limit: "100",
+    q: [...shards, "officers", "delegate", "delegateauth", "governor"].join(" "),
+    ...(shards.has("messages") ? { limit: "100" } : {}),
   });
   if (!res.ok)
     return res.message === "not found (404)"

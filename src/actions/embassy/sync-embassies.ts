@@ -1,6 +1,5 @@
 import { state } from "../../state";
 import { canon, lines, regionList } from "../../utils";
-import { regionRequests } from "../region/region-info";
 import { stepSetting } from "../spec";
 import type { ActionDef, StepRequest } from "../types";
 import { type EmbassyVerb, embassyVerbSpec } from "./embassy-control";
@@ -29,8 +28,10 @@ export const syncEmbassiesAction: Omit<ActionDef, "group"> = {
   blurb:
     "Close, reject, abort or withdraw every embassy not on the Settings whitelist or a Send Embassy Request list, and cancel closure of kept ones.",
   fields: [],
-  expand: (_step, ctx) =>
-    regionRequests(ctx, (info) => {
+  powers: "E",
+  fromRegion: {
+    shards: ["embassies"],
+    requests: (_step, info) => {
       const kept = keptRegions();
       const requests: StepRequest[] = [];
       for (const { name, kind } of info.embassies) {
@@ -42,6 +43,7 @@ export const syncEmbassiesAction: Omit<ActionDef, "group"> = {
       return requests.length
         ? { tolerant: true, requests }
         : { requests: [], note: "embassies already match the whitelist" };
-    }),
+    },
+  },
   summary: () => "Keep the Settings whitelist",
 };

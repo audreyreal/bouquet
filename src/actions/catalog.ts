@@ -12,7 +12,6 @@ import { reauthAction } from "./nation/reauth";
 import { telegramFiltersAction } from "./nation/telegram-filters";
 import { votePollAction } from "./nation/vote-poll";
 import { changeWfeAction } from "./region/change-wfe";
-import { checkRegionPowersAction } from "./region/check-region-powers";
 import { createRegionAction } from "./region/create-region";
 import { banjectNationAction, ejectNationAction } from "./region/eject";
 import { removeDispatchesAction } from "./region/remove-dispatches";
@@ -40,7 +39,6 @@ export const ACTION_CATALOG: ActionDef[] = [
   { ...uploadRegionFileAction, group: "region" },
   { ...setRegionFlagAction, group: "region" },
   { ...syncEmbassiesAction, group: "embassy" },
-  { ...checkRegionPowersAction, group: "region" },
   { ...syncTagsAction, group: "region" },
   { ...suppressRmbAction, group: "region" },
   { ...removeDispatchesAction, group: "region" },
