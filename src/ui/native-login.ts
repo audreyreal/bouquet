@@ -7,7 +7,8 @@ import { el, injectNativeCss } from "./dom";
 /* A native Login button after every roster nation's name block or nation-page title link on native
  * pages (including content added later, e.g. live activity feeds), naming the nation by the link's
  * `nation=` path (else the `.nname` text) and submitting a real form POST via navigatePost that
- * reloads this page (the front page when this is a nation page) as that nation. */
+ * reloads this page (the front page when this is a nation page) as that nation. Not in the telegram
+ * UI (telegram pages and the `#tgcompose` box). */
 
 const done = new WeakSet<Element>();
 
@@ -15,6 +16,14 @@ const done = new WeakSet<Element>();
 const NATION_PATH = /^\/nation=([^/]+)/;
 /* Name blocks (inside a.nlink in happenings, lists, RMB) and the nation page title link. */
 const TARGETS = ".nnameblock, .newtitlename > a";
+/* Telegram pages, by NS's <html id="page_<page name>">: inbox, single telegram, compose. */
+const TELEGRAM_PAGES: Record<string, true> = {
+  page_telegrams: true,
+  page_tg: true,
+  page_compose_telegram: true,
+};
+/* The telegram compose box (other nations' pages), incl. its ajax-loaded recipients #tgtoloaded. */
+const TELEGRAM_COMPOSE = "#tgcompose";
 
 function nationOf(target: Element): string {
   const link = target.closest("a");
@@ -32,6 +41,7 @@ function loginTarget(): string {
 function decorate(target: Element, self: string): void {
   if (done.has(target)) return;
   done.add(target);
+  if (target.closest(TELEGRAM_COMPOSE)) return;
   const n = nationOf(target);
   if (!n || n === self || !state.nations[n]) return;
   injectNativeCss();
@@ -64,7 +74,13 @@ function scan(root: ParentNode, self: string): void {
 }
 
 export function addNativeLoginButtons(): void {
-  if (!state.nativeLoginButtons || !document.body || nationNames().length === 0) return;
+  if (
+    !state.nativeLoginButtons ||
+    !document.body ||
+    nationNames().length === 0 ||
+    TELEGRAM_PAGES[document.documentElement.id] === true
+  )
+    return;
   const self = canon(document.body.getAttribute("data-nname") ?? "");
   scan(document.body, self);
   new MutationObserver((records) => {
