@@ -8,6 +8,37 @@ export const NATIVE_CSS = `
     #bq-topbar.bq-topbar-m a{display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.3);border:1px solid #999;border-radius:3px;padding:7px 10px;color:#fff;font-weight:bold;font-size:13px;text-decoration:none;text-shadow:0 0 1px #444;-webkit-tap-highlight-color:transparent}
     #bq-topbar.bq-topbar-m a:active{background:rgba(0,0,0,.6)}
     .bq-nlogin{margin-left:6px;vertical-align:middle}
+    /* The founded-nation popup loads mdui.css, which also styles :root (canvas color, text color,
+     * font-size, color-scheme); hand those back to NationStates. Its variables stay. */
+    html:root{color-scheme:revert;color:revert;background-color:revert;font-size:revert}
+    #bq-founded{position:fixed;left:16px;bottom:16px;z-index:9998;width:320px;max-width:calc(100vw - 32px);max-height:70vh;overflow:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;padding:12px 16px;box-shadow:var(--mdui-elevation-level3);color:rgb(var(--mdui-color-on-surface));font:14px/1.45 Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;text-align:left}
+    #bq-founded.bq-founded-loading{visibility:hidden}
+    #bq-founded .bq-founded-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:16px;font-weight:500}
+    #bq-founded .bq-founded-head>span{min-width:0;overflow-wrap:anywhere}
+    #bq-founded mdui-select{display:block;width:100%}
+    #bq-founded ol{margin:0;padding-left:20px}
+    #bq-founded li.bq-done{opacity:.6;text-decoration:line-through}
+    #bq-founded li.bq-now{font-weight:500;color:rgb(var(--mdui-color-primary))}
+    #bq-founded p{margin:0}
+    #bq-founded .bq-founded-note{font-size:12px;opacity:.72}
+    #bq-founded .bq-founded-actions{display:flex;flex-wrap:wrap;gap:8px}
+    #bq-founded [hidden]{display:none}
+    /* Region dialog (actions/nation/move-region.ts askRegion): above the founded popup; native pages
+     * lack BASE_CSS's dialog-field and hint rules. */
+    #bq-region-dialog{--z-index:9999;font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif}
+    #bq-region-dialog .bq-dialog-fields{display:flex;flex-direction:column;gap:12px}
+    #bq-region-dialog .sf-hint{font-size:13px;line-height:1.45;opacity:.72}
+`;
+
+/* Toast stack (ui/mdui.ts toast): injected by the stack itself, so toasts look the same on native
+ * pages, which never get BASE_CSS. The var() fallbacks cover pages without mdui.css. */
+export const TOAST_CSS = `
+    .sf-toasts{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:min(420px,92vw);font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif}
+    .sf-toast{background:rgb(var(--mdui-color-inverse-surface,50,50,50));color:rgb(var(--mdui-color-inverse-on-surface,255,255,255));padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,.4);cursor:pointer}
+    .sf-toast-error{background:rgb(var(--mdui-color-error-container,92,21,18));color:rgb(var(--mdui-color-on-error-container,255,255,255))}
+    .sf-toast-count{margin-left:8px;font-weight:700;opacity:.85}
+    .sf-toast-count:empty{display:none}
+    .sf-toast-action{margin-left:8px;padding:2px 10px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer}
 `;
 
 export const BASE_CSS = `
@@ -35,12 +66,6 @@ export const BASE_CSS = `
     mdui-select{max-width:520px}
     .sf-main mdui-card{padding:12px}
     div.mdui-table{overflow-x:auto;border-radius:8px}
-    .sf-toasts{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:min(420px,92vw)}
-    .sf-toast{background:rgb(var(--mdui-color-inverse-surface,50,50,50));color:rgb(var(--mdui-color-inverse-on-surface,255,255,255));padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,.4);cursor:pointer}
-    .sf-toast-error{background:rgb(var(--mdui-color-error-container,92,21,18));color:rgb(var(--mdui-color-on-error-container,255,255,255))}
-    .sf-toast-count{margin-left:8px;font-weight:700;opacity:.85}
-    .sf-toast-count:empty{display:none}
-    .sf-toast-action{margin-left:8px;padding:2px 10px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer}
     .bq-section{display:flex;flex-direction:column;gap:8px}
     .bq-section-title{margin:8px 0 0;font-size:16px;font-weight:500}
     .bq-section-body{display:flex;flex-direction:column;gap:8px}

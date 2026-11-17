@@ -112,12 +112,33 @@ export interface AppState {
   actionButton: boolean;
   /* Settings toggle: native NS pages get a Login button after each roster nation's name (ui/native-login.ts). */
   nativeLoginButtons: boolean;
+  /* The founded-nation pipeline choice (ui/founded-run.ts panel and Settings): "" = the current
+   * pipeline, else a preset id. A preset id no longer in `presets` falls back to the current pipeline. */
+  foundedPipeline: string;
+  /* Settings toggle: the founding success page shows the run panel (ui/founded-run.ts); off = the
+   * nation is still filed into Founded with its password, no panel. */
+  foundedRun: boolean;
   /* Ids of collapsible page sections the user collapsed (collapsibleSection in ui/dom.ts, a native <details>). */
   collapsedSections: string[];
   /* Manage toggle: step 1 restores a puppet missing from the world nation list instead of logging in. */
   reviveMissing: boolean;
   /* First-run setup tour position (ui/walkthrough.ts); `done` = finished or skipped. */
   walkthrough: WalkthroughStage;
+}
+
+const CLEAN_UP_FOUNDED_ID = "clean-up-founded";
+/* Built-in founded-nation default: block recruitment, WASec election and regional telegrams
+ * (telegram-filters C1/C5/C3 = "3" Block All), then move to a region (blank: asked on Apply and on
+ * run start). */
+function cleanUpFoundedPreset(): ActionPreset {
+  return {
+    id: CLEAN_UP_FOUNDED_ID,
+    name: "Clean up Newly Founded Nation",
+    steps: [
+      { type: "telegram-filters", settings: { C1: "3", C5: "3", C3: "3" } },
+      { type: "move-region", settings: {} },
+    ],
+  };
 }
 
 export function defaultState(): AppState {
@@ -141,6 +162,8 @@ export function defaultState(): AppState {
     suppressBusyDrop: false,
     actionButton: false,
     nativeLoginButtons: true,
+    foundedPipeline: CLEAN_UP_FOUNDED_ID,
+    foundedRun: true,
     collapsedSections: [],
     reviveMissing: false,
     walkthrough: "global-password",
@@ -150,9 +173,10 @@ export function defaultState(): AppState {
         name: "Standard Prep",
         steps: [
           { type: "apply-wa", settings: {} },
-          { type: "move-region", settings: { region: "Neck" } },
+          { type: "move-region", settings: {} },
         ],
       },
+      cleanUpFoundedPreset(),
     ],
   };
 }
@@ -265,6 +289,12 @@ export function loadState(): AppState {
       presets.push({ id: storedId(item.id), name: name.trim(), steps });
       if (presets.length === 50) break;
     }
+    /* A blob without `foundedRun` predates the founded-nation settings: seed the built-in preset
+     * once and make it the founded default. Later persists carry `foundedRun`, so a deleted preset
+     * stays deleted. */
+    const preFounded = typeof p.foundedRun !== "boolean";
+    if (preFounded && presets.length < 50 && !presets.some((x) => x.id === CLEAN_UP_FOUNDED_ID))
+      presets.push(cleanUpFoundedPreset());
     /* An auth entry without both tokens could only ever send garbage in a POST body; drop it and
      * let the puppet show as missing (re-harvest/import repairs it). */
     const auth: Record<string, BouquetAuth> = {};
@@ -307,6 +337,11 @@ export function loadState(): AppState {
       suppressBusyDrop: bool(p.suppressBusyDrop, base.suppressBusyDrop),
       actionButton: bool(p.actionButton, base.actionButton),
       nativeLoginButtons: bool(p.nativeLoginButtons, base.nativeLoginButtons),
+      foundedPipeline:
+        preFounded && presets.some((x) => x.id === CLEAN_UP_FOUNDED_ID)
+          ? CLEAN_UP_FOUNDED_ID
+          : str(p.foundedPipeline, base.foundedPipeline),
+      foundedRun: bool(p.foundedRun, base.foundedRun),
       collapsedSections: Array.isArray(p.collapsedSections)
         ? [
             ...new Set(
@@ -349,6 +384,11 @@ export function ensureMainNation(prefill: string): boolean {
 /* A puppet's login password: its override, else the global password, else "". */
 export function passwordFor(name: string): string {
   return state.passwords[canon(name)] || state.globalPassword || "";
+}
+
+/* The founded-nation pipeline choice: a still-existing preset id, else "" (the current pipeline). */
+export function foundedChoice(): string {
+  return state.presets.some((p) => p.id === state.foundedPipeline) ? state.foundedPipeline : "";
 }
 
 /* Cached dump population (millions) of a roster nation; null = not in the dump, undefined = unknown. */

@@ -28,13 +28,18 @@ export function injectDarkPrepaint(): void {
   document.head.appendChild(el("style", { id: "bq-prepaint" }, DARK_PREPAINT_CSS));
 }
 
+/* MDUI stylesheet + Outlined icon font + Roboto, as unattached <link>s; [0] is mdui.css. */
+export function mduiStylesheets(): HTMLLinkElement[] {
+  return [MDUI_CSS_URL, MDUI_ICONS_URL, ROBOTO_URL].map((href) =>
+    el("link", { rel: "stylesheet", href }),
+  );
+}
+
 /* Script mount: base CSS + MDUI stylesheet + Outlined icon font + Roboto + FOUC guard. Returns the MDUI global or null. */
 export function loadMduiAssets(): MduiGlobal | null {
   document.head.append(
     el("style", { id: "sf-base-css" }, BASE_CSS),
-    ...[MDUI_CSS_URL, MDUI_ICONS_URL, ROBOTO_URL].map((href) =>
-      el("link", { rel: "stylesheet", href }),
-    ),
+    ...mduiStylesheets(),
     el("style", null, `${FOUC_CSS}${FONT_CSS}`),
   );
   return mduiGlobal();

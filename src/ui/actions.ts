@@ -137,3 +137,22 @@ export function onSpace(fn: () => void | Promise<void>, host: HTMLElement): HTML
   );
   return null;
 }
+
+/* The page action on a native page (founded-nation popup): `button` when state.actionButton, else the
+ * bound key while `enabled()` (closing the popup hands the key back to NS). Same in-flight drop as onSpace. */
+export function onNativeAction(
+  fn: () => void | Promise<void>,
+  button: HTMLElement,
+  enabled: () => boolean,
+): void {
+  if (state.actionButton) {
+    button.addEventListener("click", () => void press(fn));
+    return;
+  }
+  button.hidden = true;
+  bindKey(
+    () => state.keys.action,
+    () => press(fn),
+    enabled,
+  );
+}

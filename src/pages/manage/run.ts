@@ -1,39 +1,32 @@
 /* Manage run: the sticky run panel and the page-action press that sends one request per press. */
 
+import { actionDef, actionTitle, askRegion, needsRegion, withRegion } from "../../actions";
+import { executeRestore, type RestoreResult } from "../../actions/execute";
 import {
-  type ActionDef,
-  actionDef,
-  actionTitle,
-  missingPowers,
-  type RunContext,
-  type StepRequest,
-} from "../../actions";
-import {
-  executeRequest,
-  executeRestore,
-  executeStep,
-  type RestoreResult,
-  type StepResult,
-} from "../../actions/execute";
+  advanceAfter,
+  newRun,
+  type PressHost,
+  type PuppetRun,
+  prefetchRegion,
+  pressRun,
+  withNotice,
+} from "../../actions/run-press";
 import { authFor } from "../../auth";
 import { ETA_SAMPLES } from "../../constants";
-import { NS_BUSY_MSG, type RegionInfo, type RegionShard, readRegionInfo } from "../../net";
-import { folderName, nationNames, state, viewNames } from "../../state";
+import { NS_BUSY_MSG } from "../../net";
+import { folderName, nationNames, persist, state, viewNames } from "../../state";
 import { actionKey, keyLabel, nextHint, onSpace, registerSkip } from "../../ui/actions";
 import { busyDropToast, el, hint } from "../../ui/dom";
 import { toast } from "../../ui/mdui";
 import {
-  type ActiveRun,
   beginSend,
   type Ctx,
   inRunSet,
   NO_PUPPETS,
   nextRunIndex,
-  type RegionRead,
   rosterOrToast,
   settle,
   viewScope,
-  withNotice,
 } from "./ctx";
 import type { Pipeline } from "./pipeline";
 import type { Revive } from "./revive";
@@ -71,9 +64,6 @@ export function createRun(
   const samples: number[] = [];
   let lastFinished: string | null = null;
 
-  function runContext(run: ActiveRun): RunContext {
-    return { actor: run.actor, region: state.regions[run.actor] ?? "", uploads: run.uploads };
-  }
   function runStepLabel(actor: string, index: number): string {
     return index === 0 && revive.willRestore(actor)
       ? "Restore nation"
@@ -89,7 +79,7 @@ export function createRun(
 
   /* Progress over the run set (inRunSet) of the shown folders: the ▸ puppet counts by its finished
    * steps; ETA = remaining puppets × the average of `samples`. */
-  function paintEta(names: string[], run: ActiveRun | null): void {
+  function paintEta(names: string[], run: PuppetRun | null): void {
     const pipeLen = state.pipeline.length;
     const total = names.filter((n) => inRunSet(ctx, n)).length;
     if (total === 0 || pipeLen === 0) {
@@ -209,77 +199,21 @@ export function createRun(
     );
   }
 
-  /* Marks the run's current step done: next press sends the following step, or the run completes. */
-  function advanceAfter(run: ActiveRun, doneText: string, notice = ""): void {
-    run.stepIndex++;
-    run.progress = { kind: "send" };
-    if (run.stepIndex >= state.pipeline.length) {
-      completeAndAdvance(run.actor, undefined, notice);
-      return;
-    }
-    const nextStep = state.pipeline[run.stepIndex];
-    toast(nextHint(withNotice(`${run.actor}: ${doneText}`, notice), actionTitle(nextStep.type)));
-  }
-
   function toastRunAborted(): void {
     toast(`Run aborted — puppet removed (press ${actionKey()} to restart)`, "error");
   }
 
-  /* Starts the puppet's one region API read, autonomous with no press: once step 0 (login/restore)
-   * has reported the region, when a step from `stepIndex` on needs powers or region data, and no read
-   * of that region exists yet. A completed Move Region changes the region and so triggers a fresh
-   * read. Shards = those of the remaining fromRegion steps. */
-  function prefetchRegion(run: ActiveRun): void {
-    if (run.stepIndex < 1) return;
-    const region = state.regions[run.actor] ?? "";
-    if (!region || run.regionRead?.region === region) return;
-    const shards = new Set<RegionShard>();
-    let needed = false;
-    for (const step of state.pipeline.slice(run.stepIndex)) {
-      const def = actionDef(step.type);
-      if (!def?.powers && !def?.fromRegion) continue;
-      needed = true;
-      for (const shard of def.fromRegion?.shards ?? []) shards.add(shard);
-    }
-    if (!needed) return; // no region-control step left in the pipeline → no region API request at all
-    const read: RegionRead = { region, result: null };
-    run.regionRead = read;
-    void readRegionInfo(region, shards).then((result) => {
-      read.result = result;
-      if (ctx.active === run) paintRunBar();
-    });
-  }
-
-  type RegionGate =
-    | { kind: "ok"; info: RegionInfo; region: string }
-    | { kind: "missing"; note: string }
-    | { kind: "wait"; message: string } // toast; nothing sent; the next press re-checks
-    | { kind: "fail"; message: string }; // ends the puppet's run
-  /* A region step's check against the background read. Never awaits: any HTML request this press
-   * sends follows the press at once. */
-  function regionGate(run: ActiveRun, def: ActionDef): RegionGate {
-    const region = state.regions[run.actor] ?? "";
-    if (!region)
-      return {
-        kind: "fail",
-        message: "puppet's region unknown — log in first (the login page reports it)",
-      };
-    if (run.regionRead?.region !== region) prefetchRegion(run);
-    const result = run.regionRead?.result;
-    if (!result) return { kind: "wait", message: `reading ${region} from the API — press again` };
-    if (!result.ok) {
-      if (!result.busy) return { kind: "fail", message: result.message };
-      run.regionRead = null; // the press's finally re-reads
-      return { kind: "wait", message: `${region} API read: ${NS_BUSY_MSG}` };
-    }
-    const missing = missingPowers(result.value, run.actor, def.powers ?? "");
-    if (missing)
-      return {
-        kind: "missing",
-        note: `${def.title} skipped — missing officer powers ${missing} in ${region}`,
-      };
-    return { kind: "ok", info: result.value, region };
-  }
+  const host: PressHost = {
+    isCurrent: (r) => ctx.active === r,
+    setSending: (on) => {
+      if (on) beginSend(ctx);
+      else ctx.sending = false;
+    },
+    complete: (r, completion, notice) => completeAndAdvance(r.actor, completion, notice),
+    regionReadLanded: (r) => {
+      if (ctx.active === r) paintRunBar();
+    },
+  };
 
   /* Each press advances one request/read step or consumes an armed empty-upload skip. */
   const actionBtn = onSpace(async () => {
@@ -297,10 +231,21 @@ export function createRun(
       const names = rosterOrToast();
       if (!names) return;
 
-      let run: ActiveRun;
+      let run: PuppetRun;
       if (ctx.active === null) {
         if (!state.pipeline.length) {
           toast("No actions in the pipeline", "error");
+          return;
+        }
+        if (state.pipeline.some(needsRegion)) {
+          askRegion("The pipeline's Move to Region step has no region. Which region?", (region) => {
+            state.pipeline = state.pipeline.map((s) =>
+              needsRegion(s) ? withRegion(s, region) : s,
+            );
+            persist();
+            ctx.paint();
+            toast(`Region set to ${region} — press ${actionKey()} to start`);
+          });
           return;
         }
         if (ctx.hl > names.length - 1) ctx.hl = Math.max(0, names.length - 1);
@@ -326,14 +271,7 @@ export function createRun(
           toast("Still loading the nation list — press again in a moment", "error");
           return;
         }
-        run = {
-          actor,
-          stepIndex: 0,
-          progress: { kind: "send" },
-          uploads: { flag: "", banner: "" },
-          startedAt: Date.now(),
-          regionRead: null,
-        };
+        run = newRun(actor, state.pipeline);
         ctx.active = run;
         lastFinished = null;
       } else {
@@ -343,21 +281,10 @@ export function createRun(
           toastRunAborted();
           return;
         }
-        if (run.stepIndex >= state.pipeline.length) {
+        if (run.stepIndex >= run.steps.length) {
           completeAndAdvance(run.actor);
           return;
         }
-      }
-
-      let step = state.pipeline[run.stepIndex];
-      if (!step) {
-        ctx.active = null;
-        toast("No actions in the pipeline", "error");
-        return;
-      }
-      if (run.progress.kind === "skip-upload") {
-        advanceAfter(run, `${actionTitle(step.type)} skipped (empty upload)`);
-        return;
       }
 
       /* Restore instead of login. dropped/busy aren't attempts (next press re-sends); any other
@@ -392,7 +319,7 @@ export function createRun(
               run.actor,
               withNotice(`${run.actor}: revived but no chk/localid in response`, out.notice),
             );
-          else advanceAfter(run, "Restore nation done", out.notice);
+          else advanceAfter(host, run, "Restore nation done", out.notice);
         } else if (out.kind === "needs-reset") {
           completeAndAdvance(
             run.actor,
@@ -407,157 +334,9 @@ export function createRun(
         return;
       }
 
-      /* A step whose action says it is a no-op for this puppet (e.g. a move to the region it is
-       * already in), whose officer powers the puppet lacks, or whose region tool has nothing to do is
-       * skipped without a request; the press goes on to the next step (or finishes the run). All of
-       * it is synchronous: the press's request follows at once. */
-      const skipNotes: string[] = [];
-      while (step) {
-        const sdef = actionDef(step.type);
-        let note = sdef?.skip?.(step, runContext(run)) ?? "";
-        if (!note && sdef && (sdef.powers || sdef.fromRegion) && run.progress.kind === "send") {
-          const gate = regionGate(run, sdef);
-          if (gate.kind === "wait") {
-            toast(`${run.actor}: ${[...skipNotes, gate.message].join(" · ")}`);
-            return;
-          }
-          if (gate.kind === "fail") {
-            completeAndAdvance(
-              run.actor,
-              `${run.actor}: ${[...skipNotes, `${sdef.title} failed — ${gate.message}`].join(" · ")}`,
-            );
-            return;
-          }
-          if (gate.kind === "missing") note = gate.note;
-          else if (sdef.fromRegion) {
-            const plan = sdef.fromRegion.requests(step, gate.info, gate.region);
-            if (!plan.requests.length) note = `${sdef.title}: ${plan.note ?? "nothing to do"}`;
-            else
-              run.progress = {
-                kind: "requests",
-                list: plan.requests,
-                pos: 0,
-                failed: 0,
-                tolerant: plan.tolerant === true,
-              };
-          }
-        }
-        if (!note) break;
-        skipNotes.push(note);
-        run.stepIndex++;
-        step = state.pipeline[run.stepIndex];
-      }
-      if (skipNotes.length) toast(`${run.actor}: ${skipNotes.join(" · ")}`);
-      if (!step) {
-        completeAndAdvance(run.actor);
-        return;
-      }
-      const title = actionTitle(step.type);
-      const def = actionDef(step.type);
-      const note =
-        def && !def.expand && !def.fromRegion ? (def.runNote?.(step, runContext(run)) ?? "") : "";
-
-      beginSend(ctx);
-      let current = false;
-      let res: StepResult;
-      let request: StepRequest | null = null;
-      try {
-        if (def?.expand && run.progress.kind !== "requests") {
-          const out = await def.expand(step, runContext(run));
-          if (ctx.active !== run) return;
-          if ("busy" in out) {
-            toast(NS_BUSY_MSG, "error");
-            return;
-          }
-          if ("error" in out) {
-            completeAndAdvance(run.actor, `${run.actor}: ${title} failed — ${out.error}`);
-            return;
-          }
-          if (!out.requests.length) {
-            advanceAfter(run, `${title}: ${out.note ?? "nothing to do"}`);
-            return;
-          }
-          run.progress = {
-            kind: "requests",
-            list: out.requests,
-            pos: 0,
-            failed: 0,
-            tolerant: out.tolerant === true,
-          };
-          if (out.pressUsed) {
-            toast(nextHint(`${run.actor}: ${title} — page read`, out.requests[0].label));
-            return;
-          }
-        }
-        if (run.progress.kind === "requests") {
-          request = run.progress.list[run.progress.pos];
-          res = await executeRequest(request.spec, run.actor);
-        } else {
-          res = await executeStep(step, run.actor, runContext(run));
-        }
-      } finally {
-        current = settle(ctx, run);
-      }
-
-      if (!current) return;
-      if (res.dropped) {
-        busyDropToast();
-        return;
-      }
-      if (res.busy) {
-        if (res.emptyUpload) {
-          run.progress = { kind: "skip-upload" };
-          toast(
-            `${run.actor}: ${title} returned empty (no redirect followed) — press ${actionKey()} again to skip`,
-            "error",
-          );
-          return;
-        }
-        toast(res.message, "error");
-        return;
-      }
-      const label = request ? request.label : title;
-      if (!res.ok) {
-        if (!(request && run.progress.kind === "requests" && run.progress.tolerant)) {
-          completeAndAdvance(
-            run.actor,
-            `${run.actor}: ${label} failed — ${res.message}${note ? ` · ${note}` : ""}`,
-          );
-          return;
-        }
-        /* Tolerant step: record the failure and move on to the next request. */
-        run.progress.failed++;
-        toast(`${run.actor}: ${label} failed — ${res.message}`, "error");
-      } else if (step.type === "login" && !authFor(run.actor)) {
-        completeAndAdvance(
-          run.actor,
-          withNotice(`${run.actor}: logged in but no chk/localid in response`, res.notice),
-        );
-        return;
-      } else def?.onSuccess?.(step, runContext(run), res.message);
-
-      if (run.progress.kind === "requests") {
-        const p = run.progress;
-        p.pos++;
-        if (p.pos < p.list.length) {
-          if (res.ok)
-            toast(
-              nextHint(withNotice(`${run.actor}: ${label} done`, res.notice), p.list[p.pos].label),
-            );
-          return;
-        }
-        /* A tolerant failure already toasted its message; StepResult.notice is "" for it. */
-        advanceAfter(
-          run,
-          `${title} done${p.failed ? ` (${p.failed} of ${p.list.length} failed)` : ""}`,
-          res.notice,
-        );
-        return;
-      }
-
-      advanceAfter(run, `${title} done`, [note, res.notice].filter((t) => t !== "").join(" · "));
+      await pressRun(host, run);
     } finally {
-      if (ctx.active) prefetchRegion(ctx.active);
+      if (ctx.active) prefetchRegion(host, ctx.active);
       ctx.paint();
     }
   }, deps.main);

@@ -33,7 +33,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-/* The few rules the BOUQUET top-bar button and native Login buttons need on NationStates' own pages. */
+/* The rules the BOUQUET top-bar button, native Login buttons and the founded-nation popup need on NationStates' own pages. */
 export function injectNativeCss(): void {
   if (document.getElementById("bq-native-css")) return;
   document.head.appendChild(el("style", { id: "bq-native-css" }, NATIVE_CSS));

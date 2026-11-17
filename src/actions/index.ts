@@ -9,6 +9,7 @@ export {
   SETTING_SUMMARY,
   specFor,
 } from "./catalog";
+export { askRegion, needsRegion, withRegion } from "./nation/move-region";
 export { applyPreset, deletePreset, overwritePreset, savePreset } from "./presets";
 export { missingPowers } from "./region/region-info";
 export { openStepSettings } from "./stepDialog";

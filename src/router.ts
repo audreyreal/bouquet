@@ -1,8 +1,10 @@
 import { harvestAuth } from "./auth";
-import { BOUQUET_ORIGIN, RETURN_KEY, TAB_LOCK } from "./constants";
+import { BOUQUET_ORIGIN, RETURN_KEY } from "./constants";
 import { BOUQUET_RE, RENDER } from "./pages/index";
 import { ensureMainNation } from "./state";
+import { acquireTabLock } from "./tab-lock";
 import { refreshStatus } from "./ui/dom";
+import { isFoundedLanding, mountFoundedRun, trackFounding } from "./ui/founded-run";
 import { addNativeLoginButtons } from "./ui/native-login";
 import {
   injectDarkPrepaint,
@@ -13,7 +15,7 @@ import {
 } from "./ui/shell";
 import { addTopBarButton } from "./ui/top-bar";
 import { startWalkthrough } from "./ui/walkthrough";
-import { gv, sleep, sv } from "./utils";
+import { gv, sv } from "./utils";
 
 export function isTemplateNone(href = location.href): boolean {
   /* Chromeless URL marker, query form (?/&) or path form (/), same parse the helper uses. */
@@ -48,29 +50,13 @@ function rememberReturnUrl(): string {
   return next;
 }
 
-/* One Bouquet tab at a time: an exclusive Web Lock held for this document's lifetime. A second try
- * a second later covers in-tab Manage↔Settings navigation, where the previous document may still
- * be releasing it. */
-async function acquireTabLock(): Promise<boolean> {
-  const tryOnce = (): Promise<boolean> => {
-    const { promise, resolve } = Promise.withResolvers<boolean>();
-    void navigator.locks.request(TAB_LOCK, { ifAvailable: true }, (lock) => {
-      resolve(lock !== null);
-      /* A granted lock stays held while this never-settling promise is pending. */
-      return lock === null ? undefined : Promise.withResolvers<never>().promise;
-    });
-    return promise;
-  };
-  if (await tryOnce()) return true;
-  await sleep(1000);
-  return tryOnce();
-}
-
 export async function boot(): Promise<void> {
   const page = bouquetPage();
   if (!page) {
     addTopBarButton();
     addNativeLoginButtons();
+    trackFounding();
+    if (isFoundedLanding()) void mountFoundedRun();
     return;
   }
   if (location.origin !== BOUQUET_ORIGIN) {

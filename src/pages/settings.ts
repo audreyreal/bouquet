@@ -1,10 +1,10 @@
-/* Settings tab: global password, main nation, embassy whitelist, the daily dump (auto-download toggle, status, manual check), keybinds, the Action button toggle, the busy-toast toggle, the native Login buttons toggle and the walkthrough restart. */
+/* Settings tab: global password, main nation, embassy whitelist, the daily dump (auto-download toggle, status, manual check), keybinds, the Action button toggle, the busy-toast toggle, the native Login buttons toggle, the founded-nation run toggle and pipeline, and the walkthrough restart. */
 
 import { DEFAULT_KEYS } from "../constants";
 import { hasCachedDump, outcomeText, populationStatus, refreshPopulations } from "../dump";
-import { type Keybinds, persist, state } from "../state";
+import { foundedChoice, type Keybinds, persist, state } from "../state";
 import { keyLabel, registerSkip } from "../ui/actions";
-import { btn, card, el, hint, refreshStatus, row, section } from "../ui/dom";
+import { btn, card, el, hint, refreshStatus, row, section, selectField } from "../ui/dom";
 import { toast } from "../ui/mdui";
 import { startWalkthrough, walkthroughRefresh } from "../ui/walkthrough";
 import { canon } from "../utils";
@@ -258,10 +258,37 @@ export function renderSettings(main: HTMLElement): void {
     state.nativeLoginButtons = nativeLoginBox.checked;
     persist();
   });
+  const foundedBox = el("mdui-checkbox", null, " Trigger Pipeline Run on Nation Founds");
+  foundedBox.checked = state.foundedRun;
+  /* mdui-select can't pick an empty-valued item, so "current" stands in for "" (the current
+   * pipeline); re-clicking the picked item deselects it to "", which only restores the shown choice. */
+  const foundedSelect = selectField(
+    "Pipeline for founded nations",
+    [
+      ["current", "Current pipeline"],
+      ...state.presets.map((p): [string, string] => [p.id, p.name]),
+    ],
+    foundedChoice() || "current",
+  );
+  foundedSelect.disabled = !state.foundedRun;
+  foundedBox.addEventListener("change", () => {
+    state.foundedRun = foundedBox.checked;
+    foundedSelect.disabled = !foundedBox.checked;
+    persist();
+  });
+  foundedSelect.addEventListener("change", () => {
+    const value = foundedSelect.value;
+    if (!value) {
+      foundedSelect.value = foundedChoice() || "current";
+      return;
+    }
+    state.foundedPipeline = value === "current" ? "" : value;
+    persist();
+  });
   main.appendChild(
     section(
       "Native enhancement",
-      card(row(nativeLoginBox)),
+      card(row(nativeLoginBox), row(foundedBox, foundedSelect)),
       "Changes to native NationStates pages.",
     ),
   );

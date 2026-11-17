@@ -10,7 +10,7 @@ import { canon } from "./utils";
 /* The acting nation's region off a themed page's sidebar: Rift `li#panelregionbar > a`, Century
  * `a.STANDOUT` (Century's nation link is also STANDOUT, hence the href test). "" = no sidebar
  * (template-overall=none pages) or no region link. */
-function sidebarRegion(doc: Document): string {
+export function sidebarRegion(doc: Document): string {
   const links = doc.querySelectorAll<HTMLAnchorElement>(
     "li#panelregionbar > a[href], #panel ul.menu > li > a.STANDOUT[href]",
   );

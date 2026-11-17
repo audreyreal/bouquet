@@ -1,5 +1,6 @@
 import { type PipelineStep, persist, state } from "../../state";
-import { disclosure, hint } from "../../ui/dom";
+import { btn, disclosure, el, hint, modal } from "../../ui/dom";
+import { toast } from "../../ui/mdui";
 import { canon } from "../../utils";
 import { joinFields, renderStepFields } from "../fields";
 import { specError, stepSetting, val } from "../spec";
@@ -61,6 +62,87 @@ function moveRegionSetupIssue(step: PipelineStep): string {
   if (badLines.length) return badLinesMessage(badLines);
   if (!val(step, "region") && Object.keys(regions).length === 0) return "region required";
   return "";
+}
+
+/* A Move to Region step with no Region and no per-nation list: the run would fail "region required". */
+export function needsRegion(step: Pick<PipelineStep, "type" | "settings">): boolean {
+  return (
+    step.type === "move-region" && moveRegionSetupIssue({ id: "", ...step }) === "region required"
+  );
+}
+
+/* `step` with its Region set; a new object, so per-step caches (pipeline.ts issueCache) see the change. */
+export function withRegion<T extends Pick<PipelineStep, "type" | "settings">>(
+  step: T,
+  region: string,
+): T {
+  return { ...step, settings: { ...step.settings, region } };
+}
+
+let regionDialog: HTMLElementTagNameMap["mdui-dialog"] | null = null;
+let regionMessage: HTMLDivElement | null = null;
+let regionField: HTMLElementTagNameMap["mdui-text-field"] | null = null;
+let onRegion: ((region: string) => void) | null = null;
+
+function getRegionDialog(): HTMLElementTagNameMap["mdui-dialog"] {
+  if (regionDialog) return regionDialog;
+  const message = el("div");
+  const field = el("mdui-text-field", { label: "Region", placeholder: "e.g. the_west_pacific" });
+  const save = (): void => {
+    const region = field.value.trim();
+    if (!region) {
+      toast("Enter a region", "error");
+      return;
+    }
+    dialog.open = false;
+    onRegion?.(region);
+  };
+  const dialog = modal(
+    { id: "bq-region-dialog", headline: "Move to Region" },
+    el(
+      "div",
+      { class: "bq-dialog-fields" },
+      message,
+      field,
+      hint("Saved into the Move to Region step; change it later in its settings."),
+    ),
+    btn(
+      "Cancel",
+      "Close without setting a region",
+      () => {
+        dialog.open = false;
+      },
+      "text",
+    ),
+    btn("Save", "Save the region (Enter)", save, "filled"),
+  );
+  dialog.addEventListener("opened", () => field.focus());
+  field.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Enter") save();
+  });
+  regionDialog = dialog;
+  regionMessage = message;
+  regionField = field;
+  return dialog;
+}
+
+/* Ask for a Move to Region region; `onSave` gets the trimmed answer (Cancel: nothing happens).
+ * `themeFrom` (native pages) lends its MDUI theme/color-scheme classes to the dialog. */
+export function askRegion(
+  message: string,
+  onSave: (region: string) => void,
+  themeFrom?: HTMLElement,
+): void {
+  const dialog = getRegionDialog();
+  if (!regionMessage || !regionField) return;
+  onRegion = onSave;
+  regionMessage.textContent = message;
+  regionField.value = "";
+  if (themeFrom)
+    for (const cls of Array.from(themeFrom.classList))
+      if (cls.startsWith("mdui-theme-") || cls.startsWith("mdui-custom-color-scheme-"))
+        dialog.classList.add(cls);
+  dialog.open = true;
 }
 
 /* Where this step moves `actor`: its line in the nation → region list, else the Region field

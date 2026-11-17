@@ -68,7 +68,7 @@ const STEPS: WalkStep[] = [
     page: "manage",
     pageLabel: "Manage",
     title: "Presets",
-    text: "Or start from the default: press Apply on Standard Prep (Apply to WA, then Move to Region → Neck) to load it as your pipeline. Apply replaces the current pipeline; save your own builds here with Save current as preset.",
+    text: "Or start from the default: press Apply on Standard Prep (Apply to WA, then Move to Region; Apply asks which region) to load it as your pipeline. Apply replaces the current pipeline; save your own builds here with Save current as preset.",
     ready: () => true,
   },
 ];

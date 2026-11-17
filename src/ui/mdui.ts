@@ -1,6 +1,7 @@
-/* MDUI global access + toast. Leaf module: imports nothing else from src, so every layer can report. */
+/* MDUI global access + toast. Leaf module: imports only constants and css, so every layer can report. */
 
 import { MAX_TOASTS, TOAST_MS } from "../constants";
+import { TOAST_CSS } from "./css";
 
 export function mduiGlobal(): MduiGlobal | null {
   return window.mdui ?? (typeof mdui !== "undefined" ? mdui : null);
@@ -80,6 +81,10 @@ export function toast(msg: string, kind?: ToastKind, action?: ToastAction): void
 function ensureToastBox(): HTMLElement {
   const existing = document.getElementById("sf-toasts");
   if (existing) return existing;
+  const style = document.createElement("style");
+  style.id = "sf-toast-css";
+  style.textContent = TOAST_CSS;
+  document.head.appendChild(style);
   const box = document.createElement("div");
   box.id = "sf-toasts";
   box.className = "sf-toasts";

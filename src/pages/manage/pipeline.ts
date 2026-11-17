@@ -6,16 +6,19 @@ import {
   actionDef,
   actionTitle,
   applyPreset,
+  askRegion,
   deletePreset,
   isConfigurable,
   LOGIN_BLURB,
   LOGIN_TITLE,
+  needsRegion,
   newStep,
   openStepSettings,
   overwritePreset,
   SETTING_SUMMARY,
   savePreset,
   specFor,
+  withRegion,
 } from "../../actions";
 import { type PipelineStep, passwordFor, persist, state, viewNames } from "../../state";
 import { btn, card, collapsibleSection, el, hint, iconButton, row, section } from "../../ui/dom";
@@ -289,6 +292,25 @@ export function createPipeline(ctx: Ctx): Pipeline {
                   },
                   "Pipeline restored",
                 );
+                const applied = state.pipeline;
+                if (applied.some(needsRegion))
+                  askRegion(
+                    `"${preset.name}" moves nations to a region, but none is set. Which region?`,
+                    (region) => {
+                      const live = state.presets.find((p) => p.id === preset.id);
+                      if (live)
+                        live.steps = live.steps.map((s) =>
+                          needsRegion(s) ? withRegion(s, region) : s,
+                        );
+                      if (state.pipeline === applied)
+                        state.pipeline = applied.map((s) =>
+                          needsRegion(s) ? withRegion(s, region) : s,
+                        );
+                      persist();
+                      resetRun(ctx);
+                      toast(`Region set to ${region}`);
+                    },
+                  );
               },
               "tonal",
             ),

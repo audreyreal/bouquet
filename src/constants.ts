@@ -18,6 +18,17 @@ export const TAB_LOCK = "bouquet-tab";
 /* Absolute URL of the NS page the current Bouquet visit started from ("" = unknown). Stored via
  * gv/sv, not in AppState: it is navigation state, not settings. */
 export const RETURN_KEY = "bouquet-return";
+/* The pending create-nation form submit (ui/founded-run.ts trackFounding): JSON { name (canon),
+ * password, at (ms) }, held only until the founding's success redirect consumes it or it is
+ * discarded. Stored via gv/sv, not in AppState: it is written on a native page that holds no tab
+ * lock, and it must cross origins (the redirect lands on BOUQUET_ORIGIN). "" = none. */
+export const FOUNDING_KEY = "bouquet-founding";
+/* A pending founding submit older than this is discarded: the success redirect follows the submit
+ * at once, so only a failed or abandoned founding gets this old. */
+export const FOUNDING_TTL_MS = 10 * 60_000;
+/* The roster folder founded nations join (ui/founded-run.ts); created on demand. */
+export const FOUNDED_FOLDER_ID = "founded";
+export const FOUNDED_FOLDER_NAME = "Founded";
 /* Feedback form linked from the top bar next to the version badge. */
 export const FEEDBACK_URL = "https://forms.gle/NuiQgQFFtZsmVVnJ8";
 /* Global keybinds (Settings page, KeyboardEvent.code values): the page action (SPACE) and the

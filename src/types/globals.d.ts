@@ -10,6 +10,9 @@ interface MduiGlobal {
 interface MduiValueElement extends HTMLElement {
   value: string;
 }
+interface MduiSelectElement extends MduiValueElement {
+  disabled: boolean;
+}
 interface MduiCheckedElement extends HTMLElement {
   checked: boolean;
 }
@@ -36,7 +39,7 @@ interface HTMLElementTagNameMap {
   "mdui-menu-item": MduiValueElement;
   "mdui-segmented-button": MduiValueElement;
   "mdui-segmented-button-group": MduiValueElement;
-  "mdui-select": MduiValueElement;
+  "mdui-select": MduiSelectElement;
   "mdui-tab": MduiValueElement;
   "mdui-tabs": MduiValueElement;
   "mdui-text-field": MduiValueElement;
